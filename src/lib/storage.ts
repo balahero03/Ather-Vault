@@ -82,7 +82,7 @@ export async function uploadFileData(
     console.log('Uploading file:', fileName, 'Size:', encryptedData.byteLength);
     
     const { error } = await supabase.storage
-      .from('aethervault-files')
+      .from('encrypted-files')
       .upload(fileName, encryptedData, {
         contentType: 'application/octet-stream',
         upsert: false // Don't overwrite existing files
@@ -161,7 +161,7 @@ export async function downloadFile(fileId: string): Promise<ArrayBuffer> {
 
     // Download encrypted data directly from Supabase Storage
     const { data, error } = await supabase.storage
-      .from('aethervault-files')
+      .from('encrypted-files')
       .download(fileName);
 
     if (error) {

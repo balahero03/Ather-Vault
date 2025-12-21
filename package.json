@@ -4,15 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "migrate-users": "node migrate-existing-users.js"
   },
   "dependencies": {
+    "@supabase/auth-helpers-nextjs": "^0.15.0",
+    "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.39.0",
     "dotenv": "^17.2.2",
-    "next": "15.5.3",
+    "next": "15.5.9",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "twilio": "^5.9.0",

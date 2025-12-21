@@ -5,7 +5,7 @@
 
 import { supabase, supabaseAdmin } from './supabase'
 
-const BUCKET_NAME = 'aethervault-files'
+const BUCKET_NAME = 'encrypted-files'
 
 /**
  * 🎯 Initialize Storage Bucket

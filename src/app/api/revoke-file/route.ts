@@ -49,7 +49,7 @@ export async function DELETE(request: NextRequest) {
     try {
         // Delete from Supabase Storage
         const { error: storageError } = await supabaseAdmin.storage
-          .from('aethervault-files')
+          .from('encrypted-files')
           .remove([fileRecord.file_name])
 
       if (storageError) {
