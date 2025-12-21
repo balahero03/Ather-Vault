@@ -1,25 +1,43 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+﻿import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError) {
-      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+      // Create profile if not exists
+      const { data: newProfile, error: createError } = await supabaseAdmin
+        .from('user_profiles')
+        .insert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || '',
+          phone: user.user_metadata?.phone || null
+        })
+        .select()
+        .single();
+      
+      if (createError) {
+        return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+      }
+      return NextResponse.json({ profile: newProfile });
     }
 
     return NextResponse.json({ profile });
@@ -31,10 +49,14 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -42,18 +64,15 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { full_name, phone } = body;
 
-    if (!full_name) {
-      return NextResponse.json({ error: 'Full name is required' }, { status: 400 });
-    }
-
-    const { data: profile, error: updateError } = await supabase
+    const { data: profile, error: updateError } = await supabaseAdmin
       .from('user_profiles')
-      .update({
-        full_name,
+      .upsert({
+        id: user.id,
+        email: user.email,
+        full_name: full_name || '',
         phone: phone || null,
         updated_at: new Date().toISOString()
       })
-      .eq('user_id', user.id)
       .select()
       .single();
 
@@ -71,10 +90,14 @@ export async function PUT(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -82,27 +105,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { full_name, phone } = body;
 
-    if (!full_name) {
-      return NextResponse.json({ error: 'Full name is required' }, { status: 400 });
-    }
-
-    // Check if profile already exists
-    const { data: existingProfile } = await supabase
+    const { data: profile, error: insertError } = await supabaseAdmin
       .from('user_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (existingProfile) {
-      return NextResponse.json({ error: 'Profile already exists' }, { status: 409 });
-    }
-
-    const { data: profile, error: insertError } = await supabase
-      .from('user_profiles')
-      .insert({
-        user_id: user.id,
-        full_name,
-        email: user.email!,
+      .upsert({
+        id: user.id,
+        email: user.email,
+        full_name: full_name || '',
         phone: phone || null
       })
       .select()
