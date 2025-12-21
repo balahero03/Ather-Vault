@@ -2,7 +2,7 @@
 
 Zero-Knowledge Encrypted File Sharing Platform
 
-[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](YOUR_VERCEL_URL)
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://zero-trust-share-ivory.vercel.app)
 [![CI](https://github.com/Nivedhaasai/Zero-Trust-Share/actions/workflows/ci.yml/badge.svg)](https://github.com/Nivedhaasai/Zero-Trust-Share/actions)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
@@ -12,7 +12,7 @@ A secure file sharing platform that encrypts everything client-side before uploa
 
 ## Demo
 
-Try it live: **[your-deployment-url](YOUR_VERCEL_URL)**
+Try it live: **[your-deployment-url](https://zero-trust-share-ivory.vercel.app)**
 
 ## Why AetherVault?
 
