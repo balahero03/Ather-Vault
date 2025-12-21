@@ -3,11 +3,16 @@
 Zero-Knowledge Encrypted File Sharing Platform
 
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://zero-trust-share.vercel.app)
+[![CI](https://github.com/Nivedhaasai/Zero-Trust-Share/actions/workflows/ci.yml/badge.svg)](https://github.com/Nivedhaasai/Zero-Trust-Share/actions)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 A secure file sharing platform that encrypts everything client-side before upload. The server never sees your unencrypted files, file names, or passwords.
+
+## Demo
+
+Try it live: **[zero-trust-share.vercel.app](https://zero-trust-share.vercel.app)**
 
 ## Why AetherVault?
 
@@ -26,33 +31,44 @@ A secure file sharing platform that encrypts everything client-side before uploa
 - **Expiry Controls** - Set files to expire after custom duration
 - **Secure Sharing** - Share via passcode-protected links
 - **SMS Verification** - Optional 2FA via Twilio
+- **Dark Mode UI** - Modern, responsive interface
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Next.js 14, React, TypeScript, Tailwind CSS |
+| Frontend | Next.js 14, React 18, TypeScript, Tailwind CSS |
 | Encryption | Web Crypto API, AES-256-GCM, PBKDF2 (100k iterations) |
 | Backend | Next.js API Routes, Supabase Auth |
 | Database | Supabase (PostgreSQL) |
 | Storage | AWS S3 with pre-signed URLs |
 | SMS | Twilio (optional) |
+| Deployment | Vercel |
 
 ## Architecture
 
 ```
-Browser                         Server                        Storage
-                                                                
-     1. Encrypt file locally                                    
-     >                                 
-                                    2. Get pre-signed URL       
-                                    >  
-                                                                
-     3. Upload encrypted blob directly to S3                     
-     >   
-                                                                
-     4. Store encrypted metadata                                
-     >                                 
++------------------+     +-------------------+     +------------------+
+|                  |     |                   |     |                  |
+|     Browser      |     |      Server       |     |     AWS S3       |
+|                  |     |                   |     |                  |
++--------+---------+     +---------+---------+     +--------+---------+
+         |                         |                        |
+         |  1. Encrypt file        |                        |
+         |     locally (AES-256)   |                        |
+         |                         |                        |
+         +------------------------>|  2. Request            |
+         |                         |     pre-signed URL     |
+         |                         +----------------------->|
+         |                         |                        |
+         |  3. Upload encrypted    |                        |
+         |     blob directly       |                        |
+         +------------------------------------------------->|
+         |                         |                        |
+         |  4. Store encrypted     |                        |
+         |     metadata only       |                        |
+         +------------------------>|                        |
+         |                         |                        |
 ```
 
 ## Quick Start
@@ -60,7 +76,7 @@ Browser                         Server                        Storage
 ### Prerequisites
 
 - Node.js 18+
-- Supabase account
+- Supabase account (free tier works)
 - AWS S3 bucket
 
 ### Installation
@@ -73,9 +89,9 @@ cd Zero-Trust-Share
 # Install dependencies
 npm install
 
-# Set up environment variables
+# Set up environment
 cp .env.example .env.local
-# Edit .env.local with your Supabase and AWS credentials
+# Edit .env.local with your credentials
 
 # Run development server
 npm run dev
@@ -83,44 +99,57 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
-### Environment Variables
+### Docker (Alternative)
 
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-
-# AWS S3
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_REGION=your_region
-AWS_S3_BUCKET=your_bucket_name
-
-# Twilio (optional)
-TWILIO_ACCOUNT_SID=your_sid
-TWILIO_AUTH_TOKEN=your_token
-TWILIO_PHONE_NUMBER=your_phone
+```bash
+docker-compose up --build
 ```
 
-## API Endpoints
+## Environment Variables
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/prepare-upload | Initialize file upload |
-| GET | /api/my-files | Get user's uploaded files |
-| DELETE | /api/revoke-file | Revoke file access |
-| GET | /api/get-file-metadata/[id] | Get file info |
-| GET | /api/get-file-download/[id] | Get download URL |
-| POST | /api/record-download | Log download event |
+See [.env.example](.env.example) for all required variables.
+
+| Variable | Description |
+|----------|-------------|
+| NEXT_PUBLIC_SUPABASE_URL | Your Supabase project URL |
+| NEXT_PUBLIC_SUPABASE_ANON_KEY | Supabase anonymous key |
+| AWS_S3_BUCKET | S3 bucket for file storage |
+| TWILIO_* | Optional SMS verification |
+
+## API Reference
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/prepare-upload` | Yes | Initialize file upload |
+| GET | `/api/my-files` | Yes | List user's files |
+| DELETE | `/api/revoke-file` | Yes | Revoke file access |
+| GET | `/api/get-file-metadata/[id]` | No | Get file info |
+| GET | `/api/get-file-download/[id]` | No | Get download URL |
+| POST | `/api/record-download` | No | Log download event |
 
 ## Security Model
 
-1. **Key Derivation**: User passcode  PBKDF2 (100,000 iterations)  AES key
-2. **Encryption**: File + metadata encrypted with AES-256-GCM
-3. **Storage**: Only encrypted blobs stored on S3
-4. **Sharing**: Recipient needs passcode to derive decryption key
-5. **Zero Knowledge**: Server never handles unencrypted data or keys
+```
+User Passcode
+      |
+      v
++-----+------+
+|   PBKDF2   |  100,000 iterations
++-----+------+
+      |
+      v
++-----+------+
+| AES-256-GCM|  File + Metadata Encryption
++-----+------+
+      |
+      v
++-----+------+
+|  Encrypted |  Stored on S3
+|    Blob    |  Server has no keys
++------------+
+```
+
+See [SECURITY.md](SECURITY.md) for full security documentation.
 
 ## Project Structure
 
@@ -128,11 +157,19 @@ TWILIO_PHONE_NUMBER=your_phone
 src/
  app/
     api/              # API routes
+       prepare-upload/
+       my-files/
+       revoke-file/
+       get-file-*/
     auth/             # Auth pages
     dashboard/        # User dashboard
-    share/            # Share file pages
-    upload/           # Upload pages
+    share/            # Share pages
+    upload/           # Upload flow
  components/           # React components
+    AuthModal.tsx
+    FileUploadProcess.tsx
+    RecipientView.tsx
+    DashboardView.tsx
  lib/
      encryption.ts     # Crypto operations
      storage.ts        # S3 operations
@@ -142,15 +179,22 @@ src/
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch: git checkout -b feature/amazing-feature
-3. Commit changes: git commit -m 'Add amazing feature'
-4. Push to branch: git push origin feature/amazing-feature
+2. Create feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
+## Acknowledgments
+
+- Built with [Next.js](https://nextjs.org/)
+- Encryption via [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
+- Database by [Supabase](https://supabase.com/)
+- Storage by [AWS S3](https://aws.amazon.com/s3/)
+
 ---
 
-Built with security-first mindset.
+**AetherVault** - Where privacy meets innovation in file sharing.
