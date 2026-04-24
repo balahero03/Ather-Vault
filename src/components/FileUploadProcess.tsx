@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { AuthModal } from './AuthModal';
-import { ShareResult } from './ShareResult';
+// import { ShareResult } from './ShareResult'; // No longer used
+import { ShareSuccessModal } from './ShareSuccessModal';
 import { supabase } from '@/lib/supabase';
 import { encryptFile, encryptMetadata, deriveMasterKey } from '@/lib/encryption';
 import { prepareFileUpload, uploadFileData } from '@/lib/storage';
@@ -112,7 +113,7 @@ export function FileUploadProcess({ onAuthSuccess }: FileUploadProcessProps) {
         )
       );
       
-      const { encryptedData, fileSalt } = await encryptFile(selectedFile, passcode);
+      const { encryptedData, fileSalt, iv } = await encryptFile(selectedFile, passcode);
 
       // Step 2: Encrypt metadata (filename) with master key
       setProcessingSteps(prev => 
@@ -126,11 +127,11 @@ export function FileUploadProcess({ onAuthSuccess }: FileUploadProcessProps) {
 
       // For demo purposes, we'll use a placeholder password
       // In production, you'd store the master key more securely
-      const { masterKey } = await deriveMasterKey('demo-password', masterKeySalt);
+      const { masterKey, masterKeyHash } = await deriveMasterKey('demo-password', masterKeySalt);
       
-      const { encryptedData: encryptedFileName } = await encryptMetadata(selectedFile.name, masterKey);
+      const { encryptedData: encryptedFileName, ivBase64: metadataIv } = await encryptMetadata(selectedFile.name, masterKey);
 
-      // Step 3: Prepare upload and upload to S3
+      // Step 3: Prepare upload and upload to Supabase Storage
       setProcessingSteps(prev => 
         prev.map((step, index) => 
           index === 2 ? { ...step, completed: true } : step
@@ -141,15 +142,18 @@ export function FileUploadProcess({ onAuthSuccess }: FileUploadProcessProps) {
                          linkExpiry === '24h' ? 24 : 
                          linkExpiry === '7d' ? 168 : 720;
 
-      const { uploadUrl, fileId } = await prepareFileUpload(
+      const { fileName, fileId } = await prepareFileUpload(
         encryptedFileName,
         selectedFile.size,
         fileSalt,
+        iv,
+        masterKeyHash,
+        metadataIv,
         burnAfterRead,
         expiryHours
       );
 
-      await uploadFileData(uploadUrl, encryptedData);
+      await uploadFileData(fileName, encryptedData);
 
       // Step 4: Finalize
       setProcessingSteps(prev => 
@@ -404,11 +408,14 @@ export function FileUploadProcess({ onAuthSuccess }: FileUploadProcessProps) {
       )}
 
       {/* Success State */}
-      {state === 'success' && shareData && (
-        <ShareResult
-          shareLink={shareData.link}
-          passcode={shareData.passcode}
-          onReset={handleReset}
+      {state === 'success' && shareData && selectedFile && (
+        <ShareSuccessModal
+          isOpen={true}
+          onClose={handleReset}
+          fileId={shareData.link.split('/file/')[1]?.split('#')[0] || ''}
+          fileName={selectedFile.name}
+          shareUrl={shareData.link}
+          fileSize={selectedFile.size}
         />
       )}
     </div>

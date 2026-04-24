@@ -1,185 +1,191 @@
-# AetherVault - Zero-Knowledge File Sharing Platform
+# AetherVault
 
-AetherVault is the first platform to apply a full-stack, zero-knowledge architecture, encrypting not only your shared files but also your account metadata, ensuring absolute privacy even in the event of a full server-side breach.
+Zero-Knowledge Encrypted File Sharing Platform
 
-## 🏆 The Winning Vision
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://zero-trust-share-ivory.vercel.app)
+[![CI](https://github.com/Nivedhaasai/Zero-Trust-Share/actions/workflows/ci.yml/badge.svg)](https://github.com/Nivedhaasai/Zero-Trust-Share/actions)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**"AetherVault is the first platform to apply a full-stack, zero-knowledge architecture, encrypting not only your shared files but also your account metadata, ensuring absolute privacy even in the event of a full server-side breach."**
+A secure file sharing platform that encrypts everything client-side before upload. The server never sees your unencrypted files, file names, or passwords.
 
-## 🔐 Zero-Knowledge Architecture
+## Demo
 
-### The Triangle of Trustless Exchange
+Try it live: **[your-deployment-url](https://zero-trust-share-ivory.vercel.app)**
 
-| Feature | Google Drive | WeTransfer | Firefox Send | AetherVault |
-|---------|-------------|------------|--------------|-------------|
-| **Uncompromising Privacy** | ❌ Server-Side Encryption | ❌ Server-Side Encryption | ✅ Client-Side E2EE | ✅ **Full-Stack Zero-Knowledge** |
-| **Verifiable Delivery** | ❌ Insecure Password Model | ❌ Insecure Password Model | ❌ No delivery verification | ✅ **The Digital Handshake** |
-| **Accountable Control** | ❌ Limited Policy Control | ❌ No User Control | ❌ Anonymous model led to abuse | ✅ **Auth-gated with superior security** |
+## Why AetherVault?
 
-### Key Features
+| Feature | Traditional Cloud | AetherVault |
+|---------|------------------|-------------|
+| Encryption | Server-side (they have keys) | Client-side (only you have keys) |
+| File Names | Visible to provider | Encrypted |
+| Passwords | Stored on server | Never leaves your browser |
+| Server Breach | Your files exposed | Attackers get encrypted blobs |
 
-- **Zero-Knowledge Encryption**: All encryption happens client-side using Web Crypto API
-- **PBKDF2 Key Derivation**: 100,000 iterations for strong key derivation
-- **Metadata Protection**: Even file names are encrypted with user's master key
-- **Burn After Read**: Files can be automatically deleted after first download
-- **Expiry Controls**: Set custom expiration times for shared files
-- **Secure Storage**: Files stored as encrypted blobs in AWS S3
-- **Pre-signed URLs**: Direct client-to-S3 upload/download for efficiency
+## Features
 
-## 🏗️ Architecture
+- **End-to-End Encryption** - AES-256-GCM encryption happens in your browser
+- **Zero-Knowledge** - Server stores only encrypted data, no keys
+- **Burn After Read** - Optional auto-delete after first download
+- **Expiry Controls** - Set files to expire after custom duration
+- **Secure Sharing** - Share via passcode-protected links
+- **SMS Verification** - Optional 2FA via Twilio
+- **Dark Mode UI** - Modern, responsive interface
 
-### Frontend (Next.js/React)
-- User interface and interaction
-- **All cryptographic operations**
-- Zero-knowledge file encryption/decryption
-- Master key derivation and management
+## Tech Stack
 
-### Backend (Supabase + Next.js API Routes)
-- **Supabase**: User authentication and database
-- **API Routes**: Trusted broker for S3 operations
-- **Database**: Stores only encrypted metadata
+| Layer | Technology |
+|-------|------------|
+| Frontend | Next.js 14, React 18, TypeScript, Tailwind CSS |
+| Encryption | Web Crypto API, AES-256-GCM, PBKDF2 (100k iterations) |
+| Backend | Next.js API Routes, Supabase Auth |
+| Database | Supabase (PostgreSQL) |
+| Storage | AWS S3 with pre-signed URLs |
+| SMS | Twilio (optional) |
+| Deployment | Vercel |
 
-### Storage (AWS S3)
-- Encrypted file storage
-- Pre-signed URL generation
-- No knowledge of keys or content
+## Architecture
 
-## 🚀 Quick Start
+```
++------------------+     +-------------------+     +------------------+
+|                  |     |                   |     |                  |
+|     Browser      |     |      Server       |     |     AWS S3       |
+|                  |     |                   |     |                  |
++--------+---------+     +---------+---------+     +--------+---------+
+         |                         |                        |
+         |  1. Encrypt file        |                        |
+         |     locally (AES-256)   |                        |
+         |                         |                        |
+         +------------------------>|  2. Request            |
+         |                         |     pre-signed URL     |
+         |                         +----------------------->|
+         |                         |                        |
+         |  3. Upload encrypted    |                        |
+         |     blob directly       |                        |
+         +------------------------------------------------->|
+         |                         |                        |
+         |  4. Store encrypted     |                        |
+         |     metadata only       |                        |
+         +------------------------>|                        |
+         |                         |                        |
+```
+
+## Quick Start
 
 ### Prerequisites
+
 - Node.js 18+
-- Supabase account
-- AWS account with S3 access
+- Supabase account (free tier works)
+- AWS S3 bucket
 
 ### Installation
 
-1. **Clone and install dependencies:**
 ```bash
-git clone <repository-url>
-cd zero-trust-share
+# Clone the repo
+git clone https://github.com/Nivedhaasai/Zero-Trust-Share.git
+cd Zero-Trust-Share
+
+# Install dependencies
 npm install
-```
 
-2. **Set up environment variables:**
-```bash
-cp env.example .env.local
+# Set up environment
+cp .env.example .env.local
 # Edit .env.local with your credentials
-```
 
-3. **Set up Supabase:**
-   - Create a new Supabase project
-   - Run the SQL from `supabase-schema.sql` in the SQL Editor
-   - Get your project URL and keys
-
-4. **Set up AWS S3:**
-   - Create an S3 bucket
-   - Configure CORS (see SETUP_GUIDE.md)
-   - Create IAM user with S3 permissions
-
-5. **Run the application:**
-```bash
+# Run development server
 npm run dev
 ```
 
-## 📁 Project Structure
+Open [http://localhost:3000](http://localhost:3000)
+
+### Docker (Alternative)
+
+```bash
+docker-compose up --build
+```
+
+## Environment Variables
+
+See [.env.example](.env.example) for all required variables.
+
+| Variable | Description |
+|----------|-------------|
+| NEXT_PUBLIC_SUPABASE_URL | Your Supabase project URL |
+| NEXT_PUBLIC_SUPABASE_ANON_KEY | Supabase anonymous key |
+| AWS_S3_BUCKET | S3 bucket for file storage |
+| TWILIO_* | Optional SMS verification |
+
+## API Reference
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/prepare-upload` | Yes | Initialize file upload |
+| GET | `/api/my-files` | Yes | List user's files |
+| DELETE | `/api/revoke-file` | Yes | Revoke file access |
+| GET | `/api/get-file-metadata/[id]` | No | Get file info |
+| GET | `/api/get-file-download/[id]` | No | Get download URL |
+| POST | `/api/record-download` | No | Log download event |
+
+## Security Model
+
+```
+User Passcode
+      |
+      v
++-----+------+
+|   PBKDF2   |  100,000 iterations
++-----+------+
+      |
+      v
++-----+------+
+| AES-256-GCM|  File + Metadata Encryption
++-----+------+
+      |
+      v
++-----+------+
+|  Encrypted |  Stored on S3
+|    Blob    |  Server has no keys
++------------+
+```
+
+See [SECURITY.md](SECURITY.md) for full security documentation.
+
+## Project Structure
 
 ```
 src/
-├── app/                    # Next.js App Router
-│   ├── api/               # API routes
-│   │   ├── prepare-upload/
-│   │   ├── get-file-metadata/
-│   │   ├── get-file-download/
-│   │   ├── record-download/
-│   │   ├── my-files/
-│   │   └── revoke-file/
-│   ├── auth/              # Authentication pages
-│   ├── dashboard/         # User dashboard
-│   ├── share/             # File sharing pages
-│   └── upload/            # File upload pages
-├── components/            # React components
-│   ├── AuthModal.tsx      # Authentication modal
-│   ├── FileUploadProcess.tsx # File upload flow
-│   ├── RecipientView.tsx  # File download interface
-│   ├── DashboardView.tsx  # User dashboard
-│   └── ...
-└── lib/                   # Utility libraries
-    ├── encryption.ts      # Zero-knowledge encryption
-    ├── storage.ts         # Storage operations
-    ├── supabase.ts        # Supabase client
-    └── aws.ts            # AWS S3 operations
+ app/
+    api/              # API routes
+       prepare-upload/
+       my-files/
+       revoke-file/
+       get-file-*/
+    auth/             # Auth pages
+    dashboard/        # User dashboard
+    share/            # Share pages
+    upload/           # Upload flow
+ components/           # React components
+    AuthModal.tsx
+    FileUploadProcess.tsx
+    RecipientView.tsx
+    DashboardView.tsx
+ lib/
+     encryption.ts     # Crypto operations
+     storage.ts        # S3 operations
+     supabase.ts       # Supabase client
 ```
 
-## 🔧 API Endpoints
+## License
 
-### Authentication Required
-- `POST /api/prepare-upload` - Prepare file upload
-- `GET /api/my-files` - Get user's files
-- `DELETE /api/revoke-file` - Revoke file access
+MIT License - see [LICENSE](LICENSE) for details.
 
-### Public Access
-- `GET /api/get-file-metadata/[fileId]` - Get file metadata
-- `GET /api/get-file-download/[fileId]` - Get download URL
-- `POST /api/record-download` - Record successful download
+## Acknowledgments
 
-## 🔐 Security Features
-
-### Encryption
-- **AES-256-GCM** for file encryption
-- **PBKDF2** with 100,000 iterations for key derivation
-- **Random salts** for each file and user
-- **Client-side only** - server never sees unencrypted data
-
-### Privacy
-- **Zero-knowledge architecture** - server has no access to content
-- **Encrypted metadata** - even file names are protected
-- **No server-side logging** of sensitive data
-- **Pre-signed URLs** prevent server from seeing file data
-
-### Access Control
-- **Burn after read** - files auto-delete after download
-- **Expiry controls** - set custom expiration times
-- **Download tracking** - monitor file access
-- **Revocation** - instantly revoke access
-
-## 🧪 Testing the System
-
-1. **Sign Up**: Create a new account
-2. **Upload**: Select a file, set passcode, configure options
-3. **Share**: Copy the generated share link
-4. **Download**: Open link in incognito, enter passcode
-5. **Dashboard**: View and manage your files
-
-## 📚 Documentation
-
-- [Setup Guide](SETUP_GUIDE.md) - Detailed setup instructions
-- [Implementation Summary](IMPLEMENTATION_SUMMARY.md) - Technical details
-- [Demo Guide](DEMO.md) - How to demonstrate the system
-
-## 🏆 Competitive Advantages
-
-### Innovation
-- First full-stack zero-knowledge file sharing platform
-- Client-side encryption with server-side storage
-- Metadata protection beyond file content
-
-### Technical Depth
-- Sophisticated key derivation and management
-- Pre-signed S3 URLs for efficiency
-- Database-level encryption for privacy
-
-### Real-World Impact
-- Solves privacy concerns of existing solutions
-- Provides enterprise-grade security
-- Scalable architecture for production use
-
-## 🤝 Contributing
-
-This is a demonstration project showcasing zero-knowledge architecture principles. For production use, additional security measures and testing would be required.
-
-## 📄 License
-
-This project is for demonstration purposes. Please ensure compliance with all applicable laws and regulations when handling user data.
+- Built with [Next.js](https://nextjs.org/)
+- Encryption via [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
+- Database by [Supabase](https://supabase.com/)
+- Storage by [AWS S3](https://aws.amazon.com/s3/)
 
 ---
 

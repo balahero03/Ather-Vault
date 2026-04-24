@@ -20,7 +20,7 @@ export async function GET(
     // Query the shared_files table
     const { data: fileRecord, error } = await supabaseAdmin
       .from('shared_files')
-      .select('file_size, file_salt, expires_at, burn_after_read, download_count')
+      .select('file_size, file_salt, file_iv, expires_at, burn_after_read, download_count')
       .eq('id', fileId)
       .single()
 
@@ -39,9 +39,11 @@ export async function GET(
     }
 
     // Return only non-sensitive metadata
+    // Parse JSON strings back to arrays
     return NextResponse.json({
       fileSize: fileRecord.file_size,
-      fileSalt: fileRecord.file_salt,
+      fileSalt: JSON.parse(fileRecord.file_salt),
+      fileIv: JSON.parse(fileRecord.file_iv),
       burnAfterRead: fileRecord.burn_after_read,
       downloadCount: fileRecord.download_count
     })

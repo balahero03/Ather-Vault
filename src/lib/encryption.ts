@@ -36,6 +36,7 @@ function generateIV(): Uint8Array {
  */
 export async function deriveMasterKey(password: string, salt?: Uint8Array): Promise<{
   masterKey: CryptoKey;
+  masterKeyHash: string;
   salt: Uint8Array;
 }> {
   const keySalt = salt || generateSalt();
@@ -59,11 +60,23 @@ export async function deriveMasterKey(password: string, salt?: Uint8Array): Prom
     },
     passwordKey,
     { name: 'AES-GCM', length: 256 },
-    false,
+    true, // Set to true to allow export for hashing
     ['encrypt', 'decrypt']
   );
 
-  return { masterKey, salt: keySalt };
+  // Export the master key to create a hash
+  const masterKeyArrayBuffer = await crypto.subtle.exportKey('raw', masterKey);
+  const masterKeyHash = await createKeyHash(masterKeyArrayBuffer);
+
+  return { masterKey, masterKeyHash, salt: keySalt };
+}
+
+/**
+ * Create a secure hash of a key for storage
+ */
+export async function createKeyHash(keyData: ArrayBuffer): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', keyData);
+  return arrayBufferToBase64(hashBuffer);
 }
 
 /**
@@ -161,20 +174,58 @@ export async function decryptFile(
   iv: Uint8Array
 ): Promise<Blob> {
   try {
+    console.log('Starting decryption with:', {
+      encryptedDataSize: encryptedData.byteLength,
+      passcodeLength: filePasscode.length,
+      saltLength: fileSalt.length,
+      ivLength: iv.length
+    });
+
+    // Validate inputs
+    if (!filePasscode || filePasscode.length === 0) {
+      throw new Error('Passcode is required for decryption');
+    }
+    
+    if (!fileSalt || fileSalt.length === 0) {
+      console.error('File salt validation failed:', { fileSalt, type: typeof fileSalt, length: fileSalt?.length });
+      throw new Error('File salt is required for decryption');
+    }
+    
+    if (!iv || iv.length === 0) {
+      console.error('IV validation failed:', { iv, type: typeof iv, length: iv?.length });
+      throw new Error('Initialization vector is required for decryption');
+    }
+
     // Derive file key from passcode and salt
+    console.log('Deriving file key...');
     const fileKey = await deriveFileKey(filePasscode, fileSalt);
+    console.log('File key derived successfully');
 
     // Decrypt the data
+    console.log('Starting decryption...');
     const decryptedData = await crypto.subtle.decrypt(
       { name: "AES-GCM", iv },
       fileKey,
       encryptedData
     );
+    console.log('Decryption successful, decrypted size:', decryptedData.byteLength);
 
     // Return as Blob
     return new Blob([decryptedData]);
   } catch (error) {
     console.error('Decryption failed:', error);
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.name === 'OperationError') {
+        throw new Error('Decryption failed: Invalid passcode or corrupted data. Please check your passcode and try again.');
+      } else if (error.name === 'InvalidAccessError') {
+        throw new Error('Decryption failed: Invalid key or data format. Please contact support.');
+      } else {
+        throw new Error(`Decryption failed: ${error.message}`);
+      }
+    }
+    
     throw new Error('Failed to decrypt file. Please check your passcode.');
   }
 }
@@ -189,6 +240,7 @@ export async function encryptMetadata(
 ): Promise<{
   encryptedData: string;
   iv: Uint8Array;
+  ivBase64: string;
 }> {
   try {
     // Generate fresh random IV
@@ -206,7 +258,8 @@ export async function encryptMetadata(
 
     return {
       encryptedData: arrayBufferToBase64(encryptedData),
-      iv
+      iv,
+      ivBase64: btoa(String.fromCharCode(...iv))
     };
   } catch (error) {
     console.error('Metadata encryption failed:', error);
@@ -220,15 +273,18 @@ export async function encryptMetadata(
 export async function decryptMetadata(
   encryptedData: string,
   masterKey: CryptoKey,
-  iv: Uint8Array
+  iv: Uint8Array | string
 ): Promise<string> {
   try {
+    // Handle both Uint8Array and base64 string IVs
+    const ivBytes = typeof iv === 'string' ? new Uint8Array(base64ToArrayBuffer(iv)) : iv;
+    
     // Convert base64 to ArrayBuffer
     const dataBuffer = base64ToArrayBuffer(encryptedData);
 
     // Decrypt the metadata
     const decryptedData = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv },
+      { name: "AES-GCM", iv: ivBytes },
       masterKey,
       dataBuffer
     );

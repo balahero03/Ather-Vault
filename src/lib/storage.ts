@@ -1,6 +1,6 @@
 /**
  * AetherVault Storage Utilities
- * Handles zero-knowledge file upload and download with Supabase + AWS S3
+ * Handles zero-knowledge file upload and download with Supabase Storage
  */
 
 import { supabase } from './supabase';
@@ -17,17 +17,19 @@ export interface FileMetadata {
 
 export interface UploadResponse {
   fileId: string;
-  uploadUrl: string;
-  s3Key: string;
+  fileName: string;
 }
 
 /**
- * Prepare file upload by getting pre-signed URL and creating database record
+ * Prepare file upload by creating database record
  */
 export async function prepareFileUpload(
   encryptedFileName: string,
   fileSize: number,
   fileSalt: Uint8Array,
+  fileIv: Uint8Array,
+  masterKeyHash: string,
+  metadataIv: string,
   burnAfterRead: boolean = false,
   expiryHours: number = 24
 ): Promise<UploadResponse> {
@@ -49,6 +51,9 @@ export async function prepareFileUpload(
         encryptedFileName,
         fileSize,
         fileSalt: Array.from(fileSalt),
+        fileIv: Array.from(fileIv),
+        masterKeyHash,
+        metadataIv,
         burnAfterRead,
         expiryHours
       })
@@ -67,27 +72,31 @@ export async function prepareFileUpload(
 }
 
 /**
- * Upload encrypted file data to S3 using pre-signed URL
+ * Upload encrypted file data to Supabase Storage
  */
 export async function uploadFileData(
-  uploadUrl: string,
+  fileName: string,
   encryptedData: ArrayBuffer
 ): Promise<void> {
   try {
-    const uploadResult = await fetch(uploadUrl, {
-      method: 'PUT',
-      body: encryptedData,
-      headers: {
-        'Content-Type': 'application/octet-stream',
-      }
-    });
+    console.log('Uploading file:', fileName, 'Size:', encryptedData.byteLength);
+    
+    const { error } = await supabase.storage
+      .from('encrypted-files')
+      .upload(fileName, encryptedData, {
+        contentType: 'application/octet-stream',
+        upsert: false // Don't overwrite existing files
+      });
 
-    if (!uploadResult.ok) {
-      throw new Error('Failed to upload file data');
+    if (error) {
+      console.error('Upload data failed:', error);
+      throw new Error(`Failed to upload file data: ${error.message}`);
     }
+    
+    console.log('Upload successful for:', fileName);
   } catch (error) {
     console.error('Upload data failed:', error);
-    throw new Error('Failed to upload file data. Please try again.');
+    throw new Error(`Failed to upload file data: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -96,7 +105,8 @@ export async function uploadFileData(
  */
 export async function getFileMetadata(fileId: string): Promise<{
   fileSize: number;
-  fileSalt: Uint8Array;
+  fileSalt: number[];
+  fileIv: number[];
   burnAfterRead: boolean;
   downloadCount: number;
 }> {
@@ -115,7 +125,8 @@ export async function getFileMetadata(fileId: string): Promise<{
     const data = await response.json();
     return {
       fileSize: data.fileSize,
-      fileSalt: new Uint8Array(data.fileSalt),
+      fileSalt: data.fileSalt, // Already an array from the API
+      fileIv: data.fileIv, // Already an array from the API
       burnAfterRead: data.burnAfterRead,
       downloadCount: data.downloadCount
     };
@@ -126,11 +137,13 @@ export async function getFileMetadata(fileId: string): Promise<{
 }
 
 /**
- * Download encrypted file from storage
+ * Download encrypted file from Supabase Storage
  */
 export async function downloadFile(fileId: string): Promise<ArrayBuffer> {
   try {
-    // Get pre-signed download URL from backend
+    console.log('Downloading file with ID:', fileId);
+    
+    // Get file info from backend
     const downloadResponse = await fetch(`/api/get-file-download/${fileId}`);
 
     if (!downloadResponse.ok) {
@@ -139,19 +152,30 @@ export async function downloadFile(fileId: string): Promise<ArrayBuffer> {
       } else if (downloadResponse.status === 410) {
         throw new Error('File has expired or been consumed');
       }
-      throw new Error('Failed to get download URL');
+      const errorText = await downloadResponse.text();
+      throw new Error(`Failed to get download info: ${errorText}`);
     }
 
-    const { downloadUrl } = await downloadResponse.json();
+    const { fileName } = await downloadResponse.json();
+    console.log('Downloading file:', fileName);
 
-    // Download encrypted data directly from S3
-    const fileResponse = await fetch(downloadUrl);
+    // Download encrypted data directly from Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('encrypted-files')
+      .download(fileName);
 
-    if (!fileResponse.ok) {
-      throw new Error('Failed to download file');
+    if (error) {
+      console.error('Download failed:', error);
+      throw new Error(`Failed to download file: ${error.message}`);
     }
 
-    return await fileResponse.arrayBuffer();
+    if (!data) {
+      throw new Error('No data received from storage');
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    console.log('Download successful, size:', arrayBuffer.byteLength);
+    return arrayBuffer;
   } catch (error) {
     console.error('Download failed:', error);
     throw error;
@@ -251,4 +275,3 @@ export async function revokeFile(fileId: string): Promise<void> {
     throw error;
   }
 }
-
